@@ -1,0 +1,219 @@
+openapi: 3.1.0
+info:
+  title: Toxic Comment Detector
+  description: API для классификации русскоязычных комментариев на токсичные и нейтральные с помощью модели RuBERT.
+  version: 1.0.0
+
+paths:
+  /predict:
+    post:
+      summary: Классификация текста
+      description: Принимает текст комментария и возвращает метку (toxic/neutral) с оценкой уверенности. Результат сохраняется в базу данных.
+      operationId: predict
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PredictionRequest"
+            example:
+              text: "Отличная статья, спасибо автору!"
+      responses:
+        "200":
+          description: Успешная классификация
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictionResponse"
+              example:
+                label: neutral
+                score: 0.98
+        "400":
+          description: Пустой текст
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                detail: "Field 'text' is required and must be a non-empty string"
+        "422":
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+        "500":
+          description: Ошибка модели
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                detail: "Model prediction failed"
+
+  /stats:
+    get:
+      summary: Статистика проверок
+      description: Возвращает общую статистику — количество проверок, процент токсичных, среднюю оценку и последние 10 проверок.
+      operationId: stats
+      responses:
+        "200":
+          description: Статистика
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsResponse"
+              example:
+                total_checks: 42
+                toxic_count: 10
+                neutral_count: 32
+                toxic_percent: 23.8
+                avg_toxic_score: 0.91
+                recent:
+                  - text: "Ты ничего не понимаешь"
+                    label: toxic
+                    score: 0.87
+                    created_at: "2025-01-15 14:30:00"
+
+  /health:
+    get:
+      summary: Проверка состояния
+      description: Проверяет, что сервис запущен и готов принимать запросы.
+      operationId: health
+      responses:
+        "200":
+          description: Сервис работает
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: ok
+
+components:
+  schemas:
+    PredictionRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          minLength: 1
+          description: Текст комментария для классификации
+
+    PredictionResponse:
+      type: object
+      required:
+        - label
+        - score
+      properties:
+        label:
+          type: string
+          enum: [toxic, neutral]
+          description: Метка классификации
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Оценка уверенности модели
+
+    StatsResponse:
+      type: object
+      required:
+        - total_checks
+        - toxic_count
+        - neutral_count
+        - toxic_percent
+        - avg_toxic_score
+        - recent
+      properties:
+        total_checks:
+          type: integer
+          description: Общее количество проверок
+        toxic_count:
+          type: integer
+          description: Количество токсичных комментариев
+        neutral_count:
+          type: integer
+          description: Количество нейтральных комментариев
+        toxic_percent:
+          type: number
+          description: Процент токсичных комментариев
+        avg_toxic_score:
+          type: number
+          description: Средняя оценка уверенности для токсичных комментариев
+        recent:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecentPrediction"
+          description: Последние 10 проверок
+
+    RecentPrediction:
+      type: object
+      required:
+        - text
+        - label
+        - score
+        - created_at
+      properties:
+        text:
+          type: string
+          description: Текст комментария
+        label:
+          type: string
+          enum: [toxic, neutral]
+          description: Метка классификации
+        score:
+          type: number
+          description: Оценка уверенности
+        created_at:
+          type: string
+          description: Дата и время проверки
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          description: Статус сервиса
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Описание ошибки
+
+    HTTPValidationError:
+      type: object
+      properties:
+        detail:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationError"
+
+    ValidationError:
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      properties:
+        loc:
+          type: array
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          description: Путь к полю с ошибкой
+        msg:
+          type: string
+          description: Сообщение об ошибке
+        type:
+          type: string
+          description: Тип ошибки

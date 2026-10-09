@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+transformers
+torch
+pytest
+httpx
+pytest-asyncio
+ruff
