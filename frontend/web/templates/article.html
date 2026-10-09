@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ article.title }} — Форум МТУСИ</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="top-bar">
+            <a href="/" class="back-link">&larr; Назад к статьям</a>
+            <div class="user-info">
+                <span class="username-label">{{ username }}</span>
+                <a href="/logout" class="logout-link">Выйти</a>
+            </div>
+        </div>
+
+        <div class="article-full">
+            <div class="article-category">{{ article.author }}</div>
+            <h1>{{ article.title }}</h1>
+            <p class="article-body">{{ article.summary }}</p>
+            <div class="article-date">{{ article.created_at }}</div>
+        </div>
+
+        <div class="comments-section">
+            <h2 class="section-title">Комментарии ({{ comments | length }})</h2>
+
+            <div class="comment-form">
+                <textarea id="commentInput" placeholder="Напишите комментарий..." rows="3"></textarea>
+                <button class="btn-check" id="commentBtn" onclick="submitComment()">Отправить</button>
+                <div class="spinner" id="spinner"></div>
+                <div class="error-area" id="errorArea"></div>
+                <div class="result-area" id="resultArea">
+                    <div class="result-card" id="resultCard">
+                        <div class="result-label" id="resultLabel"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="comments-list" id="commentsList">
+                {% for c in comments %}
+                <div class="comment-item">
+                    <div class="comment-header">
+                        <span class="comment-author">{{ c.username }}</span>
+                        <span class="comment-date">{{ c.created_at }}</span>
+                    </div>
+                    <div class="comment-text">{{ c.text }}</div>
+                </div>
+                {% endfor %}
+                {% if not comments %}
+                <p class="no-data-text">Пока нет комментариев. Будьте первым!</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var articleId = {{ article.id }};
+
+        function submitComment() {
+            var text = document.getElementById("commentInput").value.trim();
+            if (!text) return;
+
+            var btn = document.getElementById("commentBtn");
+            var spinner = document.getElementById("spinner");
+            var resultArea = document.getElementById("resultArea");
+            var errorArea = document.getElementById("errorArea");
+
+            btn.disabled = true;
+            spinner.style.display = "block";
+            resultArea.style.display = "none";
+            errorArea.style.display = "none";
+
+            fetch("/article/" + articleId + "/comment", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({text: text})
+            })
+            .then(function(r) {
+                return r.json().then(function(data) { return {status: r.status, data: data}; });
+            })
+            .then(function(res) {
+                spinner.style.display = "none";
+                btn.disabled = false;
+
+                if (res.status === 403) {
+                    var card = document.getElementById("resultCard");
+                    var label = document.getElementById("resultLabel");
+                    card.className = "result-card toxic";
+                    label.textContent = "Комментарий заблокирован: содержит токсичный контент";
+                    resultArea.style.display = "block";
+                    return;
+                }
+
+                if (res.data.error) {
+                    errorArea.textContent = res.data.error;
+                    errorArea.style.display = "block";
+                    return;
+                }
+
+                var card = document.getElementById("resultCard");
+                var label = document.getElementById("resultLabel");
+                card.className = "result-card neutral";
+                label.textContent = "Комментарий опубликован!";
+                resultArea.style.display = "block";
+
+                var list = document.getElementById("commentsList");
+                var noData = list.querySelector(".no-data-text");
+                if (noData) noData.remove();
+
+                var item = document.createElement("div");
+                item.className = "comment-item comment-new";
+                item.innerHTML =
+                    '<div class="comment-header">' +
+                        '<span class="comment-author">' + res.data.username + '</span>' +
+                        '<span class="comment-date">только что</span>' +
+                    '</div>' +
+                    '<div class="comment-text">' + escapeHtml(res.data.text) + '</div>';
+                list.insertBefore(item, list.firstChild);
+
+                document.getElementById("commentInput").value = "";
+
+                var title = document.querySelector(".section-title");
+                var count = list.querySelectorAll(".comment-item").length;
+                title.textContent = "Комментарии (" + count + ")";
+            })
+            .catch(function() {
+                spinner.style.display = "none";
+                btn.disabled = false;
+                errorArea.textContent = "Ошибка соединения с сервером";
+                errorArea.style.display = "block";
+            });
+        }
+
+        function escapeHtml(text) {
+            var div = document.createElement("div");
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        document.getElementById("commentInput").addEventListener("keydown", function(e) {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submitComment();
+            }
+        });
+    </script>
+</body>
+</html>

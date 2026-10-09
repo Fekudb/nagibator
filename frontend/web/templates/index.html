@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Форум МТУСИ — Нагибатор диванных критиков</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container container-wide">
+        <div class="top-bar">
+            <div class="status-indicator">
+                <span class="status-text">API</span>
+                <span class="status-dot" id="statusDot"></span>
+            </div>
+            <div class="user-info">
+                <span class="username-label">{{ username }}</span>
+                <a href="/stats" class="nav-link">Статистика</a>
+                <a href="/logout" class="logout-link">Выйти</a>
+            </div>
+        </div>
+
+        <h1>Форум МТУСИ</h1>
+        <p class="subtitle">Новости и обсуждения университета</p>
+
+        <div class="articles-grid">
+            {% for art in articles %}
+            <a href="/article/{{ art.id }}" class="article-card">
+                <div class="article-category">{{ art.author }}</div>
+                <h2 class="article-title">{{ art.title }}</h2>
+                <p class="article-summary">{{ art.summary }}</p>
+                <div class="article-footer">
+                    <span class="article-date">{{ art.created_at }}</span>
+                    <span class="article-action">Читать и комментировать</span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+
+        {% if not articles %}
+        <p class="no-data-text">Статьи не загружены. Проверьте подключение к API.</p>
+        {% endif %}
+    </div>
+
+    <script>
+        function checkHealth() {
+            fetch("/api/health")
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var dot = document.getElementById("statusDot");
+                dot.className = "status-dot " + (data.status === "ok" ? "online" : "offline");
+            })
+            .catch(function() {
+                document.getElementById("statusDot").className = "status-dot offline";
+            });
+        }
+        checkHealth();
+        setInterval(checkHealth, 30000);
+    </script>
+</body>
+</html>

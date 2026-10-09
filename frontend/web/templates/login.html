@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход — Детектор токсичных комментариев</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Вход в систему</h1>
+        <p class="subtitle">Нагибатор диванных критиков</p>
+
+        <div class="auth-form">
+            <input type="text" id="username" class="auth-input" placeholder="Имя пользователя">
+            <input type="password" id="password" class="auth-input" placeholder="Пароль">
+
+            <div class="error-area" id="errorArea"></div>
+
+            <button class="btn-check" onclick="doLogin()">Войти</button>
+
+            <p class="auth-link">Нет аккаунта? <a href="/register">Зарегистрироваться</a></p>
+        </div>
+    </div>
+
+    <script>
+        function doLogin() {
+            var username = document.getElementById("username").value.trim();
+            var password = document.getElementById("password").value;
+            var errorArea = document.getElementById("errorArea");
+            errorArea.style.display = "none";
+
+            if (!username || !password) {
+                errorArea.textContent = "Заполните все поля";
+                errorArea.style.display = "block";
+                return;
+            }
+
+            fetch("/login", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({username: username, password: password})
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    errorArea.textContent = data.error;
+                    errorArea.style.display = "block";
+                } else {
+                    window.location.href = "/";
+                }
+            })
+            .catch(function() {
+                errorArea.textContent = "Ошибка соединения с сервером";
+                errorArea.style.display = "block";
+            });
+        }
+
+        document.getElementById("password").addEventListener("keydown", function(e) {
+            if (e.key === "Enter") doLogin();
+        });
+    </script>
+</body>
+</html>

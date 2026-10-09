@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Статистика — Детектор токсичных комментариев</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="top-bar">
+            <a href="/" class="back-link">&larr; Назад к проверке</a>
+            <div class="user-info">
+                <span class="username-label">{{ username }}</span>
+                <a href="/logout" class="logout-link">Выйти</a>
+            </div>
+        </div>
+
+        <h1>Статистика проверок</h1>
+        <p class="subtitle">Общая статистика работы системы</p>
+
+        {% if stats.error %}
+        <div class="error-area" style="display: block;">{{ stats.error }}</div>
+        {% else %}
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total_checks }}</div>
+                <div class="stat-label">Всего проверок</div>
+            </div>
+            <div class="stat-card toxic-card">
+                <div class="stat-value">{{ stats.toxic_count }}</div>
+                <div class="stat-label">Токсичных</div>
+            </div>
+            <div class="stat-card neutral-card">
+                <div class="stat-value">{{ stats.neutral_count }}</div>
+                <div class="stat-label">Нейтральных</div>
+            </div>
+        </div>
+
+        <!-- Общая круговая диаграмма -->
+        <h2 class="section-title">Соотношение комментариев</h2>
+        <div class="chart-container">
+            {% if stats.total_checks > 0 %}
+            <canvas id="mainChart"></canvas>
+            {% else %}
+            <p class="no-data-text">Пока нет данных для отображения</p>
+            {% endif %}
+        </div>
+
+        <!-- Статистика по полу -->
+        {% if stats.by_gender %}
+        <h2 class="section-title">Токсичность по полу</h2>
+        <div class="gender-charts">
+            {% for g in stats.by_gender %}
+            <div class="gender-chart-card">
+                <div class="gender-chart-title">{{ 'Мужчины' if g.gender == 'male' else 'Женщины' }}</div>
+                <canvas id="genderChart_{{ g.gender }}" width="200" height="200"></canvas>
+                <div class="gender-chart-meta">
+                    Проверок: {{ g.total }} | Токсичных: {{ g.toxic_count }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% endif %}
+    </div>
+
+    {% if not stats.error and stats.total_checks > 0 %}
+    <script>
+        var toxicCount = {{ stats.toxic_count }};
+        var neutralCount = {{ stats.neutral_count }};
+
+        new Chart(document.getElementById("mainChart"), {
+            type: "doughnut",
+            data: {
+                labels: ["Токсичных", "Нейтральных"],
+                datasets: [{
+                    data: [toxicCount, neutralCount],
+                    backgroundColor: ["#e53e3e", "#38c172"],
+                    borderWidth: 2,
+                    borderColor: "#fff"
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: "bottom",
+                        labels: { padding: 16, font: { size: 14 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                var total = ctx.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                                var pct = (ctx.raw / total * 100).toFixed(1);
+                                return ctx.label + ": " + ctx.raw + " (" + pct + "%)";
+                            }
+                        }
+                    }
+                },
+                cutout: "55%"
+            }
+        });
+
+        {% for g in stats.by_gender %}
+        (function() {
+            var gToxic = {{ g.toxic_count }};
+            var gNeutral = {{ g.total - g.toxic_count }};
+            new Chart(document.getElementById("genderChart_{{ g.gender }}"), {
+                type: "doughnut",
+                data: {
+                    labels: ["Токсичных", "Нейтральных"],
+                    datasets: [{
+                        data: [gToxic, gNeutral],
+                        backgroundColor: ["#e53e3e", "#38c172"],
+                        borderWidth: 2,
+                        borderColor: "#fff"
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    var total = ctx.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                                    var pct = (ctx.raw / total * 100).toFixed(1);
+                                    return ctx.label + ": " + ctx.raw + " (" + pct + "%)";
+                                }
+                            }
+                        }
+                    },
+                    cutout: "50%"
+                }
+            });
+        })();
+        {% endfor %}
+    </script>
+    {% endif %}
+</body>
+</html>
